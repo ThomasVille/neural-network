@@ -26,6 +26,8 @@ produit un graphique représentant les résultats.
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <string>
+#include <map>
 #include <algorithm>
 using namespace std;
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
@@ -34,17 +36,17 @@ using namespace std;
 #define SAIN 	false
 
 const string dataOutputFilename = "result.data";
-
+/*
 struct Parameter{
 	float learning_coeff 	= 0.25f;
 	float desired_error 	= 0.001f;
 	int hidden_neurons_nb 	= 25;
     int max_successive_augmentation_number = 10;
-};
+};*/
 
 struct VariationResult {
 	// Paramètres qui ont été passés au réseau
-	Parameter inputParameter;
+	map<string, float> inputParameter;
 
 	// Couleur du point
 	// Nombre d'itérations
@@ -56,39 +58,50 @@ struct VariationResult {
 	float falsePositiveRate;
 
 	/** Ne fait rien par défaut **/
-	VariationResult() {}
+	VariationResult() {
+		inputParameter["learning_coeff"] = 0.25f;
+		inputParameter["desired_error"] = 0.001f;
+		inputParameter["hidden_neurons_nb"] = 25;
+		inputParameter["max_successive_augmentation_number"] = 10;
+	}
 
 	/** Crée un objet à partir d'une chaîne formattée. **/
 	VariationResult(string line)
 	{
-		stringstream(line) >> inputParameter.learning_coeff
-            >> inputParameter.desired_error
-            >> inputParameter.hidden_neurons_nb
-            >> inputParameter.max_successive_augmentation_number
+		stringstream(line) >> inputParameter["learning_coeff"]
+            >> inputParameter["desired_error"]
+            >> inputParameter["hidden_neurons_nb"]
+            >> inputParameter["max_successive_augmentation_number"]
             >> timeOfLearningProcess
             >> truePositiveRate
             >> falsePositiveRate;
+        cout << (*this);
 	}
+
+	friend std::ostream& operator<<(std::ostream& os, const VariationResult& obj);
+
 };
 
 /** Ecrit un VariationResult directement dans un flux (stdout ou fichier) **/
 std::ostream& operator<<(std::ostream& os, const VariationResult& obj)
 {
     // write obj to stream
-    return os << obj.inputParameter.learning_coeff << " "
-            << obj.inputParameter.desired_error << " " 
-            << obj.inputParameter.hidden_neurons_nb << " " 
-            << obj.inputParameter.max_successive_augmentation_number << " " 
+    os << obj.inputParameter.at("learning_coeff") << " "
+            << obj.inputParameter.at("desired_error") << " " 
+            << obj.inputParameter.at("hidden_neurons_nb") << " " 
+            << obj.inputParameter.at("max_successive_augmentation_number") << " " 
             << obj.timeOfLearningProcess << " " 
             << obj.truePositiveRate << " " 
-            << obj.falsePositiveRate << "\n"; 
+            << obj.falsePositiveRate << "\n";
+    return os;
 }
 
 
 bool compare_outputs(fann_type *expected_outputs, fann_type *real_outputs);
 bool interpret_outputs(fann_type *real_outputs);
 fann* selectMin(vector<fann*> arr);
-VariationResult RunNeuralNetwork(Parameter parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set);
+VariationResult RunNeuralNetwork(map<string, float> parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set);
+void PrintParam(map<string, float> param);
 void InitializeData(fann_train_data** train_set, fann_train_data** validation_set, fann_train_data** test_set);
 bool FileExists(const string fileName);
 void ShowResults(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results);
@@ -102,7 +115,14 @@ vector<VariationResult> learning_coeff_results, hidden_neurons_results, max_augm
 
 
 int main(int argc, char** argv) {
-	Parameter param;
+	// Set de paramètres envoyé au RdN
+	map<string, float> param;
+	// Set de paramètres par défaut utilisé pour restaurer 'param' après chaque plage de test
+	map<string, float> defaultParam;
+	defaultParam["learning_coeff"] = 0.25f;
+	defaultParam["desired_error"] = 0.001f;
+	defaultParam["hidden_neurons_nb"] = 25;
+	defaultParam["max_successive_augmentation_number"] = 10;
 
     fann_train_data* train_set = NULL;			// Set d'entrainement (60%)
     fann_train_data* validation_set = NULL;		// Set de validation (20%)
@@ -117,21 +137,24 @@ int main(int argc, char** argv) {
 
     	// Teste différents paramètres d'apprentissages
     	// Teste plusieurs coefficients d'apprentissage
-    	for(float l = 0.01f; l <= 1.0f; l+=0.2f){
-			param.learning_coeff = l;
-            cout << "Varying 'Learning coefficient' : " << l << "/" << 1.0f << " by " << 0.2f << "\n";
+    	for(float i = 0.01f; i <= 1.0f; i+=0.2f){
+    		param = defaultParam;
+			param["learning_coeff"] = i;
+            cout << "Varying 'Learning coefficient' : " << i << "/" << 1.0f << " by " << 0.2f << "\n";
 			learning_coeff_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
 			
 		}
     	// Teste plusieurs nombres de neurones sur la couche cachée
 		for(int i = 1; i <= 25; i += 5){
-			param.hidden_neurons_nb = i;
+    		param = defaultParam;
+			param["hidden_neurons_nb"] = i;
             cout << "Varying 'Hidden neurons number' : " << i << "/" << 50 << " by " << 5 << "\n";
 			hidden_neurons_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
 		}
     	// Teste plusieurs nombres d'augmentations successives avant l'arrêt
 		for(int i = 1; i <= 30; i += 10){
-			param.max_successive_augmentation_number = i;
+    		param = defaultParam;
+			param["max_successive_augmentation_number"] = i;
             cout << "Varying 'Hidden neurons number' : " << i << "/" << 30 << " by " << 10 << "\n";
 			max_augmentation_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
 		}
@@ -204,7 +227,7 @@ void InitializeData(fann_train_data** train_set, fann_train_data** validation_se
     test_set_size = fann_length_train_data(*test_set);
 }
 
-VariationResult RunNeuralNetwork(Parameter parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set)
+VariationResult RunNeuralNetwork(map<string, float> parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set)
 {
 	fann* ann = NULL;													// Réseau de neurones
 	int i = 0;
@@ -215,7 +238,7 @@ VariationResult RunNeuralNetwork(Parameter parameter, fann_train_data* train_set
     int max_epochs = 1000;
     int total_epochs = 0;
 
-    float desired_error = parameter.desired_error;
+    float desired_error = parameter.at("desired_error");
     int epochs_between_reports = 1;
     float current_error = 0.0f;
 
@@ -224,15 +247,17 @@ VariationResult RunNeuralNetwork(Parameter parameter, fann_train_data* train_set
     vector<float> validation_error;
 
     int successive_augmentation_number;
-    int max_successive_augmentation_number = parameter.max_successive_augmentation_number;
+    int max_successive_augmentation_number = parameter.at("max_successive_augmentation_number");
 
     /* Vrai positif, Faux positif, Faux négatif, Vrai négatif */
     float TP = 0.0f, FP = 0.0f, FN = 0.0f, TN = 0.0f;
 
     
     //cout << "[Initializing] Neural network | 2. Cross Validation" << endl;
-    ann = fann_create_standard(3,5971,parameter.hidden_neurons_nb,2);
-    fann_set_learning_rate(ann, parameter.learning_coeff);
+    //PrintParam(parameter);
+
+    ann = fann_create_standard(3, 5971, (int)parameter.at("hidden_neurons_nb"), 2);
+    fann_set_learning_rate(ann, parameter.at("learning_coeff"));
     fann_randomize_weights(ann, -0.77f, 0.77f);
 	
     validation_set_size = fann_length_train_data(validation_set);
@@ -337,6 +362,14 @@ VariationResult RunNeuralNetwork(Parameter parameter, fann_train_data* train_set
 	result.falsePositiveRate = (100.0f*(float)FP/((float)TN+(float)FP));
 
 	return result;
+}
+
+/** Affiche un set de paramètres **/
+void PrintParam(map<string, float> param)
+{
+	for(pair<string, float> p : param) {
+		cout << p.first << " : " << p.second << "\n";
+	}
 }
 
 /* Interprète les sorties du réseau.
