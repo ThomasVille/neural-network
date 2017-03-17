@@ -10,6 +10,8 @@ The main goal of this project is to find the best parameters for a neural networ
  * Takes only 20% of the given dataset to speed up the process.
  * Tries several NN parameters based on predefined ranges of values.
  * Creates a SVG image containing a ROC curve showing the efficiency of the NN for the different parameters.
+ * Detects inconsistent parameters.
+ * 
 
 ## Dependencies
  * FANN >= 2.2

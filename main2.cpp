@@ -2,8 +2,6 @@
 // 5971 inputs
 // 25 hidden
 // 2 outputs
-//95% sans Early Stopping
-//96% avec 10 augmentations successives
 // Question ouverte :
 - Learning coefficient
 - Nombre d'augmentations avant arret
@@ -35,7 +33,9 @@ using namespace std;
 #define MALWARE true
 #define SAIN 	false
 
-const string dataOutputFilename = "result.data";
+string outputDataFilename = "result.data";
+string inputDatasetFilename = "android-features.data";
+string outputSVGFilename = "roc-curve.svg";
 /*
 struct Parameter{
 	float learning_coeff 	= 0.25f;
@@ -109,6 +109,8 @@ void WriteToFile(vector<VariationResult> learning_coeff_results, vector<Variatio
 void ReadFromFile(const string filename, vector<VariationResult>& learning_coeff_results, vector<VariationResult>& hidden_neurons_results, vector<VariationResult>& max_augmentation_results);
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data);
 void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data);
+bool ProcessParameters(int argc, char** argv);
+void DisplayHelp(string programmeName);
 
 // Résultats des différentes variations de paramètre
 vector<VariationResult> learning_coeff_results, hidden_neurons_results, max_augmentation_results;
@@ -128,8 +130,19 @@ int main(int argc, char** argv) {
     fann_train_data* validation_set = NULL;		// Set de validation (20%)
     fann_train_data* test_set = NULL;			// Set de test (20%)
 
+    // Traite les paramètres passés au programme
+    if(!ProcessParameters(argc, argv)){
+    	cerr << "[Error] Exiting\n";
+    	return -1;
+    }
+
+    // Affiche les données d'entrée du programme
+	cout << "[Initializing] Input dataset file : " << inputDatasetFilename << "\n";
+	cout << "[Initializing] Output result file : " << outputDataFilename << "\n";
+	cout << "[Initializing] Output SVG file : " << outputSVGFilename << "\n";
+
     // Si le fichier de résultat existe déjà, alors on ne calcule pas
-    if(!FileExists(dataOutputFilename))
+    if(!FileExists(outputDataFilename))
     {
     	cout << "[Initializing] Output file does not exist\n";
     	cout << "[Initializing] Beginning tests\n";
@@ -160,12 +173,12 @@ int main(int argc, char** argv) {
 		}
 
 		// Sauvegarde les résultats
-        WriteToFile(learning_coeff_results, hidden_neurons_results, max_augmentation_results, dataOutputFilename);
+        WriteToFile(learning_coeff_results, hidden_neurons_results, max_augmentation_results, outputDataFilename);
     }
     else
     {
     	cout << "[Initializing] Output file already exists\n";
-        ReadFromFile(dataOutputFilename, learning_coeff_results, hidden_neurons_results, max_augmentation_results);
+        ReadFromFile(outputDataFilename, learning_coeff_results, hidden_neurons_results, max_augmentation_results);
     }
 
     cout << "[Initializing] Showing data\n";
@@ -192,7 +205,7 @@ void InitializeData(fann_train_data** train_set, fann_train_data** validation_se
     cout << "[Initializing] Opening train file" << endl;
 
     /////////////// Set de données entier ///////////////
-	total_train_set = fann_read_train_from_file("android-features.data");
+	total_train_set = fann_read_train_from_file(inputDatasetFilename.c_str());
 
     dataset_size = fann_length_train_data(total_train_set);
 	cout << "[Initializing] Total dataset size : " << dataset_size << endl;
@@ -503,7 +516,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	FillArrays(&(x[2]), &(y[2]), max_augmentation_results);
 
     // Initialisation
-	plsfnam("test.svg");
+	plsfnam(outputSVGFilename.c_str());
   	plsdev("svg");
 	plinit();
 	plssub( 2, 2 );
@@ -578,4 +591,86 @@ void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<Variat
 	yMax = max_element(data.begin(), data.end(), [](VariationResult& a, VariationResult& b) {
 		return a.truePositiveRate < b.truePositiveRate;
 	})->truePositiveRate;
+}
+
+/** Traite les paramètres passés au programme.
+* Vérifie l'existence des fichiers d'input.
+* Renvoie true si les paramètres sont cohérents et valide, false sinon.
+**/
+bool ProcessParameters(int argc, char** argv)
+{
+	vector<string> parameters;
+	vector<string>::iterator it;
+	// Construit un vector à partir des paramètres
+	for(int i = 0; i < argc; i++)
+		parameters.push_back(argv[i]);
+
+	// On a un paramètre
+	if(argc > 1)
+	{
+		// Check for --help
+		it = find(parameters.begin(), parameters.end(), "--help");
+		if(it != parameters.end())
+		{
+			DisplayHelp(parameters[0]);
+			parameters.erase(it);
+			return false;
+		}
+	}
+	// On a au moins deux paramètres
+	if(argc > 2)
+	{
+		// On ajoute le -1 pour ne pas parcourir le dernier élément qui est le nom du fichier de sortie
+		it = find(parameters.begin(), parameters.end()-1, "--input");
+		if(it != parameters.end()-1)
+		{
+			inputDatasetFilename = *(it+1);
+			parameters.erase(it, it+2);
+		}
+
+		it = find(parameters.begin(), parameters.end()-1, "--out-result");
+		if(it != parameters.end()-1)
+		{
+			outputDataFilename = *(it+1);
+			parameters.erase(it, it+2);
+		}
+
+		it = find(parameters.begin(), parameters.end()-1, "--out-svg");
+		if(it != parameters.end()-1)
+		{
+			outputSVGFilename = *(it+1);
+			parameters.erase(it, it+2);
+		}
+	}
+
+	// Affiche une erreur si certains paramètres sont invalides
+	if(parameters.size() > 1){
+		cerr << "[Error] Paramètres invalides : ";
+		for(auto p = parameters.begin()+1; p != parameters.end(); p++)
+			cerr << *p << ", ";
+		cerr << "\n";
+
+		return false;
+	}
+
+	// Vérifie l'existence des fichiers d'entrée
+	if(!FileExists(inputDatasetFilename)){
+		cerr << "[Error] Unable to open input dataset " << inputDatasetFilename << "\n";
+		return false;
+	}
+
+	// Si aucun paramètre n'est passé, affiche que l'aide est disponible
+	if(argc == 1){
+		cout << "[Information] Help available with : " << argv[0] << " --help\n";
+	}
+
+	return true;
+}
+
+void DisplayHelp(string programmeName)
+{
+	cout << "USAGE : " << programmeName << " --help\n"
+		 << "           Displays this help.\n";
+	cout << "USAGE : " << programmeName << " [--input <input_dataset_file>] [--out-result <output_result_file>] [--out-svg <output_svg_file>]\n"
+		 << "           Process the given input file and produce a result file and a ROC curve. If a result file already exists, only produce the ROC curve.\n";
 }

@@ -4,7 +4,7 @@ clean:
 	rm *.o
 
 run: build
-	./exo2
+	./exo2 --input android-features.data
 
 build: main2.o
 	g++ main2.o -lfann -lplplotd -o exo2
