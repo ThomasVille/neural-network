@@ -1,1 +1,4 @@
-Slim BOUAOUINA - Thomas VILLE
+# neural-network
+Authors : Slim BOUAOUINA - Thomas VILLE
+Learn to detect malware with neural network.
+
