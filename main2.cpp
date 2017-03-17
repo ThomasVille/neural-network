@@ -95,6 +95,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 void WriteToFile(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results, const string filename);
 void ReadFromFile(const string filename, vector<VariationResult>& learning_coeff_results, vector<VariationResult>& hidden_neurons_results, vector<VariationResult>& max_augmentation_results);
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data);
+void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data);
 
 // Résultats des différentes variations de paramètre
 vector<VariationResult> learning_coeff_results, hidden_neurons_results, max_augmentation_results;
@@ -463,41 +464,12 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	});
 
 
-	// Parcours tous les résultats pour ce paramètre
-	x[0] = (PLFLT*)malloc(sizeof(PLFLT)*learning_coeff_results.size());
-	y[0] = (PLFLT*)malloc(sizeof(PLFLT)*learning_coeff_results.size());
-	for(j = 0; j < learning_coeff_results.size(); j++)
-	{
-		x[0][j] = learning_coeff_results[j].falsePositiveRate;
-		y[0][j] = learning_coeff_results[j].truePositiveRate;
-		cout << "x[i][j] = " << x[0][j] << "\n";
-	}
+	// Met les résultats dans des tableaux prêts à être affichés
+	FillArrays(&(x[0]), &(y[0]), learning_coeff_results);
+	FillArrays(&(x[1]), &(y[1]), hidden_neurons_results);
+	FillArrays(&(x[2]), &(y[2]), max_augmentation_results);
 
-	// Parcours tous les résultats pour ce paramètre
-	x[1] = (PLFLT*)malloc(sizeof(PLFLT)*hidden_neurons_results.size());
-	y[1] = (PLFLT*)malloc(sizeof(PLFLT)*hidden_neurons_results.size());
-	for(j = 0; j < hidden_neurons_results.size(); j++)
-	{
-		x[1][j] = hidden_neurons_results[j].falsePositiveRate;
-		y[1][j] = hidden_neurons_results[j].truePositiveRate;
-		cout << "x[i][j] = " << x[1][j] << "\n";
-	}
-
-	// Parcours tous les résultats pour ce paramètre
-	x[2] = (PLFLT*)malloc(sizeof(PLFLT)*max_augmentation_results.size());
-	y[2] = (PLFLT*)malloc(sizeof(PLFLT)*max_augmentation_results.size());
-	for(j = 0; j < max_augmentation_results.size(); j++)
-	{
-		x[2][j] = max_augmentation_results[j].falsePositiveRate;
-		y[2][j] = max_augmentation_results[j].truePositiveRate;
-		cout << "x[i][j] = " << x[2][j] << "\n";
-	}
-
-	// Nom du fichier et type d'extension
-  	//plsdev("gcw");
-    
     // Initialisation
-
 	plsfnam("test.svg");
   	plsdev("svg");
 	plinit();
@@ -510,6 +482,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	plcol0(2);
 	plline(learning_coeff_results.size(), x[0], y[0]);
     plpoin(learning_coeff_results.size(), x[0], y[0], 3);
+
 	// Et les labels
 	//for(j = 0; j < learning_coeff_results.size(); j++)
 	//	plptex(x[0][j], y[0][j], 0, 0, 0, (" " + to_string(learning_coeff_results[j].inputParameter.learning_coeff)).c_str());
@@ -542,7 +515,22 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
   	for(i = 0; i < 3; i++) free(y[i]);
 }
 
+/** Remplie un tableau de PLFLT avec des données issues d'un tableau de VariationResult **/
+void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data)
+{
+	// Alloue la mémoire
+	(*x) = (PLFLT*)malloc(sizeof(PLFLT)*data.size());
+	(*y) = (PLFLT*)malloc(sizeof(PLFLT)*data.size());
 
+	// Remplit les tableaux
+	for(int j = 0; j < data.size(); j++)
+	{
+		(*x)[j] = data[j].falsePositiveRate;
+		(*y)[j] = data[j].truePositiveRate;
+	}
+}
+
+/** Récupère les limites minimum et maximum en X et en Y d'un set de données **/
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data)
 {
 	xMin = min_element(data.begin(), data.end(), [](VariationResult& a, VariationResult& b) {
