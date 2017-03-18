@@ -74,6 +74,7 @@ struct VariationResult {
 	/** Crée un objet à partir d'une chaîne formattée. **/
 	VariationResult(string line)
 	{
+		//vector<string> values = SplitString(line);
 		stringstream(line) >> inputParameter["learning_coeff"]
             >> inputParameter["desired_error"]
             >> inputParameter["hidden_neurons_nb"]
@@ -110,7 +111,7 @@ VariationResult RunNeuralNetwork(ParameterSet parameter, fann_train_data* train_
 void PrintParam(ParameterSet param);
 void InitializeData(fann_train_data** train_set, fann_train_data** validation_set, fann_train_data** test_set);
 bool FileExists(const string fileName);
-void ShowResults(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results);
+void ShowResults(map<string, vector<VariationResult>> testResults);
 void WriteToFile(map<string, vector<VariationResult>> testResults, const string filename);
 void ReadFromFile(const string filename, map<string, vector<VariationResult>>& testResults);
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data);
@@ -235,11 +236,7 @@ public:
 
 int main(int argc, char** argv) {
 	// Set de paramètres par défaut
-	ParameterSet defaultParam;
-	defaultParam["learning_coeff"] = 0.25f;
-	defaultParam["desired_error"] = 0.001f;
-	defaultParam["hidden_neurons_nb"] = 25;
-	defaultParam["max_successive_augmentation_number"] = 10;
+	ParameterSet defaultParam = VariationResult().inputParameter;
 
 	// Intervalles à parcourir pour chaque paramètre
 	map<string, VariationRange> mediumTestRanges = {
@@ -287,7 +284,7 @@ int main(int argc, char** argv) {
 
     cout << "Please open the " << outputSVGFilename << " file to see the ROC curve\n";
     // Affiche la courbe ROC des résultats
-    ShowResults(testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"]);
+    ShowResults(testResults);
 	
 	return 0;
 }
@@ -610,74 +607,64 @@ void ReadFromFile(const string filename, map<string, vector<VariationResult>>& t
     }
 }
 
-void ShowResults(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results)
+void ShowResults(map<string, vector<VariationResult>> testResults)
 {
 	int  i, j;
-    PLFLT* x[3]; PLFLT* y[3];
+    PLFLT** x; PLFLT** y;
 	PLFLT xMin = 0, yMin = 0, xMax = 1.0f, yMax = 1.0f;
-	vector<string> parameterNames = {"Learning coefficient", "Hidden neurons number", "Max successive augmentation number"};
 
-	// Trie chaque tableau
-	sort(learning_coeff_results.begin(), learning_coeff_results.end(), [](VariationResult a, VariationResult b) {
-		return a.falsePositiveRate < b.falsePositiveRate;
-	});
-	sort(hidden_neurons_results.begin(), hidden_neurons_results.end(), [](VariationResult a, VariationResult b) {
-		return a.falsePositiveRate < b.falsePositiveRate;
-	});
-	sort(max_augmentation_results.begin(), max_augmentation_results.end(), [](VariationResult a, VariationResult b) {
-		return a.falsePositiveRate < b.falsePositiveRate;
-	});
-
+	// Pour chaque paramètre testé
+	for(auto& testSet : testResults)
+	{
+		// Trie les tests dans l'ordre de leur False positive rate
+		cout << "First FPR before sort : " << testSet.second[0].falsePositiveRate << "\n";
+		sort(testSet.second.begin(), testSet.second.end(), [](VariationResult a, VariationResult b) {
+			return a.falsePositiveRate < b.falsePositiveRate;
+		});
+		cout << "First FPR after sort : " << testSet.second[0].falsePositiveRate << "\n";
+	}
 
 	// Met les résultats dans des tableaux prêts à être affichés
-	FillArrays(&(x[0]), &(y[0]), learning_coeff_results);
-	FillArrays(&(x[1]), &(y[1]), hidden_neurons_results);
-	FillArrays(&(x[2]), &(y[2]), max_augmentation_results);
+	x = new PLFLT*[testResults.size()];
+	y = new PLFLT*[testResults.size()];
+	i = 0;
+	for(pair<string, vector<VariationResult>> testSet : testResults)
+	{
+		FillArrays(&(x[i]), &(y[i]), testSet.second);
+		i++;
+	}
 
     // Initialisation
 	plsfnam(outputSVGFilename.c_str());
   	plsdev("svg");
 	plinit();
 	plssub( 2, 2 );
+
+	i = 0;
+	for(pair<string, vector<VariationResult>> testSet : testResults)
+	{
+		// Valeurs minimum et maximum des axes du repère
+		SetMinMax(xMin, xMax, yMin, yMax, testSet.second);
+		plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0);
+		pllab( "False Positive Rate", "True Positive Rate", testSet.first.c_str() );
+		plcol0(i+2);
+		plline(testSet.second.size(), x[i], y[i]);
+	    plpoin(testSet.second.size(), x[i], y[i], 3);
+
+    	// Et les labels
+		//for(j = 0; j < learning_coeff_results.size(); j++)
+		//	plptex(x[0][j], y[0][j], 0, 0, 0, (" " + to_string(learning_coeff_results[j].inputParameter.learning_coeff)).c_str());
+	    i++;
+	}
 	
-	// Valeurs minimum et maximum des axes du repère
-	SetMinMax(xMin, xMax, yMin, yMax, learning_coeff_results);
-	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0);
-	pllab( "False Positive Rate", "True Positive Rate", "Learning coefficient" );
-	plcol0(2);
-	plline(learning_coeff_results.size(), x[0], y[0]);
-    plpoin(learning_coeff_results.size(), x[0], y[0], 3);
-
-	// Et les labels
-	//for(j = 0; j < learning_coeff_results.size(); j++)
-	//	plptex(x[0][j], y[0][j], 0, 0, 0, (" " + to_string(learning_coeff_results[j].inputParameter.learning_coeff)).c_str());
-
-	SetMinMax(xMin, xMax, yMin, yMax, hidden_neurons_results);
-	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0);
-	pllab( "False Positive Rate", "True Positive Rate", "Number of hidden neurons" );
-	plcol0(3);
-    plline(hidden_neurons_results.size(), x[1], y[1]);
-	plpoin(hidden_neurons_results.size(), x[1], y[1], 3);
-	// Et les labels
-	//for(j = 0; j < hidden_neurons_results.size(); j++)
-	//	plptex(x[1][j], y[1][j], 0, 0, 0, (" " + to_string(hidden_neurons_results[j].inputParameter.hidden_neurons_nb)).c_str());
-
-	SetMinMax(xMin, xMax, yMin, yMax, max_augmentation_results);
-	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0); // Permet d'avoir une fenêtre légèrement dézoomée
-	pllab( "False Positive Rate", "True Positive Rate", "Max successive augmentation before early-stopping" );
-	plcol0(4);
-    plline(max_augmentation_results.size(), x[2], y[2]);
-	plpoin(max_augmentation_results.size(), x[2], y[2], 3);
-	// Et les labels
-	//for(j = 0; j < max_augmentation_results.size(); j++)
-    //  plptex(x[2][j], y[2][j], 0, 0, 0, (" " + to_string(max_augmentation_results[j].inputParameter.max_successive_augmentation_number)).c_str());
-
 
 	// Libération de la mémoire et écriture du fichier test.svg
   	plend();
 
   	for(i = 0; i < 3; i++) free(x[i]);
   	for(i = 0; i < 3; i++) free(y[i]);
+  	//free(x);
+  	//free(y);
 }
 
 /** Remplie un tableau de PLFLT avec des données issues d'un tableau de VariationResult **/
