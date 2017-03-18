@@ -26,9 +26,9 @@ produit un graphique représentant les résultats.
 #include <vector>
 #include <string>
 #include <map>
+#include <tuple>
 #include <algorithm>
 using namespace std;
-#define MAX(a,b) (((a) > (b)) ? (a) : (b))
 
 #define MALWARE true
 #define SAIN 	false
@@ -36,14 +36,16 @@ using namespace std;
 string outputDataFilename = "result.data";
 string inputDatasetFilename = "android-features.data";
 string outputSVGFilename = "roc-curve.svg";
-/*
-struct Parameter{
-	float learning_coeff 	= 0.25f;
-	float desired_error 	= 0.001f;
-	int hidden_neurons_nb 	= 25;
-    int max_successive_augmentation_number = 10;
-};*/
 
+/** Intervalle à parcourir pour faire varier un paramètre **/
+struct VariationRange {
+	float start;
+	float end;
+	float step;
+};
+
+/** Résultat d'une phase d'apprentissage/test du RdN.
+**/
 struct VariationResult {
 	// Paramètres qui ont été passés au réseau
 	map<string, float> inputParameter;
@@ -85,14 +87,14 @@ struct VariationResult {
 /** Ecrit un VariationResult directement dans un flux (stdout ou fichier) **/
 std::ostream& operator<<(std::ostream& os, const VariationResult& obj)
 {
-    // write obj to stream
-    os << obj.inputParameter.at("learning_coeff") << " "
-            << obj.inputParameter.at("desired_error") << " " 
-            << obj.inputParameter.at("hidden_neurons_nb") << " " 
-            << obj.inputParameter.at("max_successive_augmentation_number") << " " 
-            << obj.timeOfLearningProcess << " " 
-            << obj.truePositiveRate << " " 
-            << obj.falsePositiveRate << "\n";
+    // Ecrit les paramètres d'entrée en premier
+    for(auto p : obj.inputParameter){
+    	os << p.second << " ";
+    }
+    // Puis les résultats
+	os  << obj.timeOfLearningProcess << " " 
+	    << obj.truePositiveRate << " " 
+	    << obj.falsePositiveRate << "\n";
     return os;
 }
 
@@ -126,6 +128,15 @@ int main(int argc, char** argv) {
 	defaultParam["hidden_neurons_nb"] = 25;
 	defaultParam["max_successive_augmentation_number"] = 10;
 
+	// Intervalles à parcourir pour chaque paramètre
+	map<string, VariationRange> testRanges = {
+		{"learning_coeff", {0.01, 1.0f, 0.2f} },
+		{"hidden_neurons_nb", {1, 25, 5} },
+		{"max_successive_augmentation_number", {1, 30, 10} }
+	};
+
+	map<string, vector<VariationResult>> testResults;
+
     fann_train_data* train_set = NULL;			// Set d'entrainement (60%)
     fann_train_data* validation_set = NULL;		// Set de validation (20%)
     fann_train_data* test_set = NULL;			// Set de test (20%)
@@ -148,42 +159,40 @@ int main(int argc, char** argv) {
     	cout << "[Initializing] Beginning tests\n";
     	InitializeData(&train_set, &validation_set, &test_set);
 
-    	// Teste différents paramètres d'apprentissages
-    	// Teste plusieurs coefficients d'apprentissage
-    	for(float i = 0.01f; i <= 1.0f; i+=0.2f){
+    	// Teste les paramètres d'apprentissages
+    	for(auto test : testRanges){
+    		// Récupère le nom du paramètre à tester et l'intervalle à parcourir
+    		string paramName = test.first;
+    		VariationRange range = test.second;
+
+    		// Remet les paramètres d'entrée à leurs valeurs d'origine
     		param = defaultParam;
-			param["learning_coeff"] = i;
-            cout << "Varying 'Learning coefficient' : " << i << "/" << 1.0f << " by " << 0.2f << "\n";
-			learning_coeff_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
-			
-		}
-    	// Teste plusieurs nombres de neurones sur la couche cachée
-		for(int i = 1; i <= 25; i += 5){
-    		param = defaultParam;
-			param["hidden_neurons_nb"] = i;
-            cout << "Varying 'Hidden neurons number' : " << i << "/" << 50 << " by " << 5 << "\n";
-			hidden_neurons_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
-		}
-    	// Teste plusieurs nombres d'augmentations successives avant l'arrêt
-		for(int i = 1; i <= 30; i += 10){
-    		param = defaultParam;
-			param["max_successive_augmentation_number"] = i;
-            cout << "Varying 'Hidden neurons number' : " << i << "/" << 30 << " by " << 10 << "\n";
-			max_augmentation_results.push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
-		}
+
+    		// Parcours l'intervalle
+    		for(float i = range.start; i < range.end; i += range.step)
+    		{
+    			// Modifie le paramètre
+    			param.at(paramName) = i;
+
+    			cout << "Varying '" << paramName << "' by " << range.step << " : " << i << "/" << range.end << "\n";
+
+    			// Lance le calcul en récupérant le résultat
+    			testResults[paramName].push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
+    		}
+	    }
 
 		// Sauvegarde les résultats
-        WriteToFile(learning_coeff_results, hidden_neurons_results, max_augmentation_results, outputDataFilename);
+        WriteToFile(testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"], outputDataFilename);
     }
     else
     {
     	cout << "[Initializing] Output file already exists\n";
-        ReadFromFile(outputDataFilename, learning_coeff_results, hidden_neurons_results, max_augmentation_results);
+        ReadFromFile(outputDataFilename, testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"]);
     }
 
     cout << "[Initializing] Showing data\n";
     // Affiche la courbe ROC des résultats
-    ShowResults(learning_coeff_results, hidden_neurons_results, max_augmentation_results);
+    ShowResults(testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"]);
 	
 	return 0;
 }
