@@ -11,8 +11,11 @@ The main goal of this project is to find the best parameters for a neural networ
  * Tries several NN parameters based on predefined ranges of values.
  * Creates a SVG image containing a ROC curve showing the efficiency of the NN for the different parameters.
  * Detects inconsistent parameters.
- * 
+ * Parallel processing of the test cases.
 
 ## Dependencies
  * FANN >= 2.2
  * plplot
+
+## Documentation
+### How to add a new test parameter

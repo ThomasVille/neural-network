@@ -23,10 +23,11 @@ produit un graphique représentant les résultats.
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <thread>
+#include <mutex>
 #include <vector>
 #include <string>
 #include <map>
-#include <tuple>
 #include <algorithm>
 using namespace std;
 
@@ -37,6 +38,7 @@ string outputDataFilename = "result.data";
 string inputDatasetFilename = "android-features.data";
 string outputSVGFilename = "roc-curve.svg";
 
+
 /** Intervalle à parcourir pour faire varier un paramètre **/
 struct VariationRange {
 	float start;
@@ -44,11 +46,13 @@ struct VariationRange {
 	float step;
 };
 
+typedef map<string, float> ParameterSet;
+
 /** Résultat d'une phase d'apprentissage/test du RdN.
 **/
 struct VariationResult {
 	// Paramètres qui ont été passés au réseau
-	map<string, float> inputParameter;
+	ParameterSet inputParameter;
 
 	// Couleur du point
 	// Nombre d'itérations
@@ -102,44 +106,153 @@ std::ostream& operator<<(std::ostream& os, const VariationResult& obj)
 bool compare_outputs(fann_type *expected_outputs, fann_type *real_outputs);
 bool interpret_outputs(fann_type *real_outputs);
 fann* selectMin(vector<fann*> arr);
-VariationResult RunNeuralNetwork(map<string, float> parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set);
-void PrintParam(map<string, float> param);
+VariationResult RunNeuralNetwork(ParameterSet parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set);
+void PrintParam(ParameterSet param);
 void InitializeData(fann_train_data** train_set, fann_train_data** validation_set, fann_train_data** test_set);
 bool FileExists(const string fileName);
 void ShowResults(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results);
-void WriteToFile(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results, const string filename);
-void ReadFromFile(const string filename, vector<VariationResult>& learning_coeff_results, vector<VariationResult>& hidden_neurons_results, vector<VariationResult>& max_augmentation_results);
+void WriteToFile(map<string, vector<VariationResult>> testResults, const string filename);
+void ReadFromFile(const string filename, map<string, vector<VariationResult>>& testResults);
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data);
 void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data);
 bool ProcessParameters(int argc, char** argv);
 void DisplayHelp(string programmeName);
+vector<string> SplitString(string line, string delimiters = " ");
 
-// Résultats des différentes variations de paramètre
-vector<VariationResult> learning_coeff_results, hidden_neurons_results, max_augmentation_results;
+/** Autorise la réalisation des tests en multithread.
+* 
+**/
+class TestPool {
+private:
+	int nbThreads = 8;
+	vector<thread> testThread;
+
+	// Liste de paramètres à tester
+	mutex parameterStackMutex;
+	vector<pair<string, ParameterSet>> testParameters;
+	// Liste de résultats d'exécution
+	mutex testResultsMutex;
+	map<string, vector<VariationResult>> testResults;
+
+public:
+	// Données
+	fann_train_data* train_set = nullptr;		// Set d'entrainement (60%)
+	fann_train_data* validation_set = nullptr;	// Set de validation (20%)
+	fann_train_data* test_set = nullptr;		// Set de test (20%)
+
+	/** Construit une liste de paramètres à tester à partir d'intervalles de valeurs à tester.
+	* \param testRanges 	Association ("nom du test", "intervalle de valeurs")
+	* \param defaultParam	Paramètres par défaut à fournir au réseau
+	**/
+	void SetTestRanges(map<string, VariationRange> testRanges, ParameterSet defaultParam)
+	{
+		testParameters.clear();
+
+		// Set de paramètres envoyé au RdN
+		ParameterSet param;
+
+		// Construit le set de paramètres de test
+    	for(pair<string, VariationRange> test : testRanges){
+    		// Récupère le nom du paramètre à tester et l'intervalle à parcourir
+    		string paramName = test.first;
+    		VariationRange range = test.second;
+
+    		// Remet les paramètres d'entrée à leurs valeurs d'origine
+    		param = defaultParam;
+
+    		// Parcours l'intervalle
+    		for(float i = range.start; i < range.end; i += range.step)
+    		{
+    			// Modifie le paramètre
+    			param.at(paramName) = i;
+    			testParameters.push_back(pair<string, ParameterSet>(paramName, param));
+    		}
+	    }
+	}
+
+	bool GetNextTest(pair<string, ParameterSet>& outTest)
+	{
+		parameterStackMutex.lock();
+
+		// S'il n'y a plus rien à calculer, on renvoie false et on déverouille
+		if(testParameters.size() == 0) {
+			parameterStackMutex.unlock();
+			return false;
+		}
+
+		outTest = testParameters.back();
+		testParameters.pop_back();
+
+		parameterStackMutex.unlock();
+
+		return true;
+	}
+
+	void AddTestResult(string testName, VariationResult result)
+	{
+		testResultsMutex.lock();
+
+		testResults[testName].push_back(result);
+
+		testResultsMutex.unlock();
+	}
+
+	map<string, vector<VariationResult>> ExecuteTests()
+	{
+		cout << "Starting tests\n";
+
+		// Démarre les threads
+		for(int i = 0; i < nbThreads; i++)
+			testThread.push_back(thread(TestPool::TestThread, this));
+
+		
+		// Arrête les threads
+		for(int i = 0; i < nbThreads; i++)
+			testThread[i].join();
+
+		cout << "Tests finished\n";
+
+		return testResults;
+	}
+
+	static void TestThread(TestPool* testPool)
+	{
+		pair<string, ParameterSet> parameter;
+		cout << "Starting test thread\n";
+
+		// Tant qu'il reste des tests à effectuer, on les effectue
+		while(testPool->GetNextTest(parameter))
+		{
+			cout << "Testing '" << parameter.first << "' : " << parameter.second[parameter.first] << "\n";
+			VariationResult result = RunNeuralNetwork(parameter.second, testPool->train_set, testPool->validation_set, testPool->test_set);
+			testPool->AddTestResult(parameter.first, result);
+		}
+		cout << "Stopping test thread\n";
+
+	}
+};
 
 
 int main(int argc, char** argv) {
-	// Set de paramètres envoyé au RdN
-	map<string, float> param;
-	// Set de paramètres par défaut utilisé pour restaurer 'param' après chaque plage de test
-	map<string, float> defaultParam;
+	// Set de paramètres par défaut
+	ParameterSet defaultParam;
 	defaultParam["learning_coeff"] = 0.25f;
 	defaultParam["desired_error"] = 0.001f;
 	defaultParam["hidden_neurons_nb"] = 25;
 	defaultParam["max_successive_augmentation_number"] = 10;
 
 	// Intervalles à parcourir pour chaque paramètre
-	map<string, VariationRange> testRanges = {
+	map<string, VariationRange> mediumTestRanges = {
 		{"learning_coeff", {0.01, 1.0f, 0.2f} },
-		{"hidden_neurons_nb", {1, 25, 5} },
-		{"max_successive_augmentation_number", {1, 30, 10} }
+		{"hidden_neurons_nb", {1, 100, 10} },
+		{"max_successive_augmentation_number", {1, 30, 1} }
 	};
 
+	// Résultats des tests 
 	map<string, vector<VariationResult>> testResults;
 
-    fann_train_data* train_set = NULL;			// Set d'entrainement (60%)
-    fann_train_data* validation_set = NULL;		// Set de validation (20%)
-    fann_train_data* test_set = NULL;			// Set de test (20%)
+	// Gestionnaire de tests
+    TestPool testPool;
 
     // Traite les paramètres passés au programme
     if(!ProcessParameters(argc, argv)){
@@ -157,40 +270,22 @@ int main(int argc, char** argv) {
     {
     	cout << "[Initializing] Output file does not exist\n";
     	cout << "[Initializing] Beginning tests\n";
-    	InitializeData(&train_set, &validation_set, &test_set);
 
-    	// Teste les paramètres d'apprentissages
-    	for(auto test : testRanges){
-    		// Récupère le nom du paramètre à tester et l'intervalle à parcourir
-    		string paramName = test.first;
-    		VariationRange range = test.second;
+    	InitializeData(&testPool.train_set, &testPool.validation_set, &testPool.test_set);
 
-    		// Remet les paramètres d'entrée à leurs valeurs d'origine
-    		param = defaultParam;
-
-    		// Parcours l'intervalle
-    		for(float i = range.start; i < range.end; i += range.step)
-    		{
-    			// Modifie le paramètre
-    			param.at(paramName) = i;
-
-    			cout << "Varying '" << paramName << "' by " << range.step << " : " << i << "/" << range.end << "\n";
-
-    			// Lance le calcul en récupérant le résultat
-    			testResults[paramName].push_back(RunNeuralNetwork(param, train_set, validation_set, test_set));
-    		}
-	    }
+    	testPool.SetTestRanges(mediumTestRanges, defaultParam);
+    	testResults = testPool.ExecuteTests();
 
 		// Sauvegarde les résultats
-        WriteToFile(testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"], outputDataFilename);
+        WriteToFile(testResults, outputDataFilename);
     }
     else
     {
     	cout << "[Initializing] Output file already exists\n";
-        ReadFromFile(outputDataFilename, testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"]);
+        ReadFromFile(outputDataFilename, testResults);
     }
 
-    cout << "[Initializing] Showing data\n";
+    cout << "Please open the " << outputSVGFilename << " file to see the ROC curve\n";
     // Affiche la courbe ROC des résultats
     ShowResults(testResults["learning_coeff"], testResults["hidden_neurons_nb"], testResults["max_successive_augmentation_number"]);
 	
@@ -249,7 +344,7 @@ void InitializeData(fann_train_data** train_set, fann_train_data** validation_se
     test_set_size = fann_length_train_data(*test_set);
 }
 
-VariationResult RunNeuralNetwork(map<string, float> parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set)
+VariationResult RunNeuralNetwork(ParameterSet parameter, fann_train_data* train_set, fann_train_data* validation_set, fann_train_data* test_set)
 {
 	fann* ann = NULL;													// Réseau de neurones
 	int i = 0;
@@ -387,7 +482,7 @@ VariationResult RunNeuralNetwork(map<string, float> parameter, fann_train_data* 
 }
 
 /** Affiche un set de paramètres **/
-void PrintParam(map<string, float> param)
+void PrintParam(ParameterSet param)
 {
 	for(pair<string, float> p : param) {
 		cout << p.first << " : " << p.second << "\n";
@@ -447,57 +542,72 @@ bool FileExists(const string fileName)
 }
 
 
-void WriteToFile(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results, const string filename)
+void WriteToFile(map<string, vector<VariationResult>> testResults, const string filename)
 {
     // Fichier pour stocker les différents résultats
     ofstream file;
     file.open(filename, ios::app); // Ouvre le fichier en écriture
 
-    file << learning_coeff_results.size() << " " << hidden_neurons_results.size() << " " << max_augmentation_results.size() << "\n";
-    for(int i = 0; i < learning_coeff_results.size(); i++){
-        file << learning_coeff_results[i]; 
+	// Ecrit le nom de chaque paramètre
+    for(auto p : testResults){
+    	file << p.first << " ";
     }
-    for(int i = 0; i < hidden_neurons_results.size(); i++){
-        file << hidden_neurons_results[i]; 
+    file.seekp(-2, ios_base::cur); // Se décale à gauche pour enlever le dernier espace
+    file << "\n";
+
+    // Ecrit le nombre de tests par paramètre
+    for(auto p : testResults){
+    	file << p.second.size() << " ";
     }
-    for(int i = 0; i < max_augmentation_results.size(); i++){
-        file << max_augmentation_results[i];
+    file.seekp(-2, ios_base::cur); // Se décale à gauche pour enlever le dernier espace
+    file << "\n";
+
+    // Pour chaque paramètre testé
+    for(auto p : testResults){
+    	vector<VariationResult>& results = p.second;
+
+    	// Ecrit les résultats de chacun de ses tests
+    	for(int i = 0; i < results.size(); i++){
+	        file << results[i]; 
+	    }
     }
 }
-void ReadFromFile(const string filename, vector<VariationResult>& learning_coeff_results, vector<VariationResult>& hidden_neurons_results, vector<VariationResult>& max_augmentation_results)
+void ReadFromFile(const string filename, map<string, vector<VariationResult>>& testResults)
 {
     ifstream file;
     string line;
-    int size1, size2, size3;
+    vector<int> sizes;
+    vector<string> names;
 
     file.open(filename, ios::in); // Ouvre le fichier en lecture
 
-    learning_coeff_results.clear();
-    hidden_neurons_results.clear();
-    max_augmentation_results.clear();
+    // Récupère le nom de chaque paramètre testé
+    getline(file, line);
+    // Remarque : la fonction n'est appelée qu'une seule fois (voir implémentation standard)
+    for(string paramName : SplitString(line))
+    {
+    	names.push_back(paramName);
+    }
 
     // Récupère la taille de chaque plage de tests
     getline(file, line);
-    stringstream(line) >> size1 >> size2 >> size3;
-
-    for(int i = 0; i < size1; i++)
+    // Remarque : la fonction n'est appelée qu'une seule fois (voir implémentation standard)
+    for(string size : SplitString(line))
     {
-    	getline(file, line);
-        learning_coeff_results.push_back(VariationResult(line));
+    	sizes.push_back(stoi(size));
     }
 
-    for(int i = 0; i < size2; i++)
+    // Pour chaque paramètre
+    for(int i = 0; i < sizes.size(); i++)
     {
-    	getline(file, line);
-        hidden_neurons_results.push_back(VariationResult(line));
+    	// Pour chaque test du paramètre
+    	for(int j = 0; j < sizes[i]; j++)
+    	{
+    		getline(file, line);
+    		// Ajoute le résultat du test
+        	testResults[names[i]].push_back(VariationResult(line));
+    	}
     }
-
-    for(int i = 0; i < size3; i++)
-    {
-    	getline(file, line);
-        max_augmentation_results.push_back(VariationResult(line));
-    }
-
 }
 
 void ShowResults(vector<VariationResult> learning_coeff_results, vector<VariationResult> hidden_neurons_results, vector<VariationResult> max_augmentation_results)
@@ -532,7 +642,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	
 	// Valeurs minimum et maximum des axes du repère
 	SetMinMax(xMin, xMax, yMin, yMax, learning_coeff_results);
-	plenv(xMin, xMax, yMin, yMax, 0, 0);
+	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0);
 	pllab( "False Positive Rate", "True Positive Rate", "Learning coefficient" );
 	plcol0(2);
 	plline(learning_coeff_results.size(), x[0], y[0]);
@@ -543,7 +653,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	//	plptex(x[0][j], y[0][j], 0, 0, 0, (" " + to_string(learning_coeff_results[j].inputParameter.learning_coeff)).c_str());
 
 	SetMinMax(xMin, xMax, yMin, yMax, hidden_neurons_results);
-	plenv(xMin, xMax, yMin, yMax, 0, 0);
+	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0);
 	pllab( "False Positive Rate", "True Positive Rate", "Number of hidden neurons" );
 	plcol0(3);
     plline(hidden_neurons_results.size(), x[1], y[1]);
@@ -553,7 +663,7 @@ void ShowResults(vector<VariationResult> learning_coeff_results, vector<Variatio
 	//	plptex(x[1][j], y[1][j], 0, 0, 0, (" " + to_string(hidden_neurons_results[j].inputParameter.hidden_neurons_nb)).c_str());
 
 	SetMinMax(xMin, xMax, yMin, yMax, max_augmentation_results);
-	plenv(xMin, xMax, yMin, yMax, 0, 0);
+	plenv(xMin*0.99f, xMax*1.01f, yMin*0.99f, yMax*1.01f, 0, 0); // Permet d'avoir une fenêtre légèrement dézoomée
 	pllab( "False Positive Rate", "True Positive Rate", "Max successive augmentation before early-stopping" );
 	plcol0(4);
     plline(max_augmentation_results.size(), x[2], y[2]);
@@ -682,4 +792,32 @@ void DisplayHelp(string programmeName)
 		 << "           Displays this help.\n";
 	cout << "USAGE : " << programmeName << " [--input <input_dataset_file>] [--out-result <output_result_file>] [--out-svg <output_svg_file>]\n"
 		 << "           Process the given input file and produce a result file and a ROC curve. If a result file already exists, only produce the ROC curve.\n";
+}
+
+/** Sépare une chaîne de caractère en fonction d'un ou plusieurs délimiteurs.
+* 
+**/
+vector<string> SplitString(string line, string delimiters)
+{
+	// Position actuelle dans la chaîne (début du token)
+	size_t current;
+	// Position du prochain delimiter (fin du token)
+	size_t next = -1;
+	// Liste de tokens à renvoyer
+	vector<string> tokens;
+
+	// Enlève les espaces de fin de ligne
+	for(int i = line.size()-1; i >= 0 && line[i] == ' '; i--){
+		line.erase(line.begin()+i);
+	}
+
+	do
+	{
+		current = next + 1;
+		next = line.find_first_of( delimiters, current );
+		tokens.push_back(line.substr( current, next - current ));
+	}
+	while (next != string::npos);
+
+	return tokens;
 }
