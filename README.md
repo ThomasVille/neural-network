@@ -1,5 +1,6 @@
 # neural-network
 >Authors : Slim BOUAOUINA - Thomas VILLE
+
 >ESIEA 2017
 
 The main goal of this project is to find the best parameters for a neural network which purpose is to detect malicious software.
