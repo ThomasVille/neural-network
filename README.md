@@ -13,6 +13,14 @@ The main goal of this project is to find the best parameters for a neural networ
  * Detects inconsistent parameters.
  * Parallel processing of the test cases.
 
+### Resource usage
+![Screenshot of RAM and CPU usage](ResourceUsage.png)
+
+### ROC curve
+Here is an example of a ROC curve produced by the program :
+
+![ROC curve example](roc-curve.svg)
+
 ## Dependencies
  * FANN >= 2.2
  * plplot

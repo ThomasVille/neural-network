@@ -1,6 +1,8 @@
 #include "VariationResult.h"
+#include "FileUtils.h"
 #include <sstream>
 #include <iostream>
+#include <string>
 using namespace std;
 
 VariationResult::VariationResult()
@@ -11,17 +13,21 @@ VariationResult::VariationResult()
     inputParameter["max_successive_augmentation_number"] = 10;
 }
 
-VariationResult::VariationResult(std::string line)
+VariationResult::VariationResult(std::string line, vector<string>& names)
 {
-	//vector<string> values = SplitString(line);
-	std::stringstream(line) >> inputParameter["learning_coeff"]
-        >> inputParameter["desired_error"]
-        >> inputParameter["hidden_neurons_nb"]
-        >> inputParameter["max_successive_augmentation_number"]
-        >> timeOfLearningProcess
-        >> truePositiveRate
-        >> falsePositiveRate;
-    WriteToStream(cout);
+	vector<string> values = SplitString(line);
+    // Vérifie la cohérence entre le nombre de valeurs sur la ligne et le nombre de noms de paramètres
+    if(values.size() != names.size() + 3) {
+        cerr << "File read error\n";
+    }
+
+    // Lit les paramètres d'entrée
+    for(int i = 0; i < names.size(); i++){
+        inputParameter[names[i]] = stof(values[i]);
+    }
+    timeOfLearningProcess = stof(values[values.size()-3]);
+    truePositiveRate = stof(values[values.size()-2]);
+    falsePositiveRate = stof(values[values.size()-1]);
 }
 
 /** Ecrit un VariationResult directement dans un flux (stdout ou fichier) **/

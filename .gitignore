@@ -2,8 +2,6 @@
 *.rb
 *.rar
 *.pdf
-*.png
-*.svg
 *.data
 *.o
 *.net

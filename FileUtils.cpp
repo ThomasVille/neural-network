@@ -15,8 +15,8 @@ void WriteToFile(map<string, vector<VariationResult>> testResults, const string 
     ofstream file;
     file.open(filename, ios::app); // Ouvre le fichier en écriture
 
-	// Ecrit le nom de chaque paramètre
-    for(auto p : testResults){
+	// Ecrit le nom de chaque paramètre (même les non-testés)
+    for(auto p : VariationResult().inputParameter){
     	file << p.first << " ";
     }
     file.seekp(-2, ios_base::cur); // Se décale à gauche pour enlever le dernier espace
@@ -72,7 +72,7 @@ void ReadFromFile(const string filename, map<string, vector<VariationResult>>& t
     	{
     		getline(file, line);
     		// Ajoute le résultat du test
-        	testResults[names[i]].push_back(VariationResult(line));
+        	testResults[names[i]].push_back(VariationResult(line, names));
     	}
     }
 }

@@ -2,6 +2,7 @@
 #define VARIATIONRESULT_H
 
 #include <map>
+#include <vector>
 #include <string>
 
 typedef std::map<std::string, float> ParameterSet;
@@ -26,7 +27,7 @@ struct VariationResult {
 	VariationResult();
 
 	/** Crée un objet à partir d'une chaîne formattée. **/
-	VariationResult(std::string line);
+	VariationResult(std::string line, std::vector<std::string>& names);
 
 	void WriteToStream(std::ostream& os);
 };
