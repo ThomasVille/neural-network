@@ -87,6 +87,7 @@ int main(int argc, char** argv) {
         ReadFromFile(outputDataFilename, testResults);
     }
 
+    cout << "Generating new ROC curve\n";
     cout << "Please open the " << outputSVGFilename << " file to see the ROC curve\n";
     // Affiche la courbe ROC des résultats
     ShowResults(outputSVGFilename, testResults);
