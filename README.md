@@ -14,12 +14,12 @@ The main goal of this project is to find the best parameters for a neural networ
  * Parallel processing of the test cases.
 
 ### Resource usage
-![Screenshot of RAM and CPU usage](ResourceUsage.png)
+![Screenshot of RAM and CPU usage](doc/ResourceUsage.png)
 
 ### ROC curve
 Here is an example of a ROC curve produced by the program :
 
-![ROC curve example](roc-curve.png)
+![ROC curve example](doc/roc-curve.png)
 
 ## Dependencies
  * FANN >= 2.2
