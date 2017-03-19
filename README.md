@@ -8,9 +8,9 @@ The main goal of this project is to find the best parameters for a neural networ
  * Takes only 20% of the given dataset to speed up the process.
  * Tries several NN parameters based on predefined ranges of values.
  * Creates an SVG image containing a ROC curve showing the efficiency of the NN for the different parameters.
- * Detects inconsistent parameters.
+ * Detects inconsistent parameters passed to the program.
  * Parallel processing of the test cases.
- * Pretty visualisation with C3.js
+ * Pretty visualisation of the results with C3.js.
 
 ### Resource usage
 In order not to fill up your computer's memory, only 8 tests are performed simultaneously.
@@ -32,6 +32,13 @@ If you have a python setup, you can also run `make view` in the main directory a
  * Python 2.7
 
 ## Documentation
+### Makefile usage
+The main commands you would like to use :
+ - `build` : Builds the program
+ - `run` : Builds and run the program
+ - `view` : Launch the python webserver to view the results of an execution
+ - `clean` : Deletes the .o files
+ 
 ### How to add a new test parameter
 3 steps are required to add a new test parameter to the neural network :
 1. main2.cpp

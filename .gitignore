@@ -6,6 +6,7 @@
 *.o
 *.net
 exo2
+roc-curve.svg
 
 # Compiled Object files
 *.slo

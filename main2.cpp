@@ -56,6 +56,9 @@ int main(int argc, char** argv) {
 	// Gestionnaire de tests
     TestPool testPool;
 
+    // Désactive le changement de la seed de création
+    fann_disable_seed_rand();
+
     // Traite les paramètres passés au programme
     if(!ProcessParameters(argc, argv)){
     	cerr << "[Error] Exiting\n";
