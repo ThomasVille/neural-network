@@ -1,5 +1,6 @@
 # neural-network
-Authors : Slim BOUAOUINA - Thomas VILLE
+>Authors : Slim BOUAOUINA - Thomas VILLE
+>ESIEA 2017
 
 The main goal of this project is to find the best parameters for a neural network which purpose is to detect malicious software.
 
@@ -36,22 +37,23 @@ If you have a python setup, you can also run `make view` in the main directory a
 The main commands you would like to use :
  - `build` : Builds the program
  - `run` : Builds and run the program
- - `view` : Launch the python webserver to view the results of an execution
+ - `view` : Launches the python webserver to view the results of an execution
  - `clean` : Deletes the .o files
- 
+
 ### How to add a new test parameter
 3 steps are required to add a new test parameter to the neural network :
-1. main2.cpp
+
+#### 1. main2.cpp
 In the main function, set the range of values you want your parameter to iterate through.
 
 ![How to add a new test parameter : main2.cpp](doc/main.png)
 
-2. VariationResult.cpp
+#### 2. VariationResult.cpp
 In the default constructor of VariationResult, add a default value to the parameter.
 
 ![How to add a new test parameter : VariationResult.cpp](doc/VariationResult.png)
 
-3. RunNeuralNetwork.cpp
+#### 3. RunNeuralNetwork.cpp
 In RunNeuralNetwork, use your parameter the way you want, pass it to fann functions, switch on it, etc. Just remember that parameters are of float type.
 
 ![How to add a new test parameter : RunNeuralNetwork.cpp](doc/RunNeuralNetwork.png)
