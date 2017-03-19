@@ -44,9 +44,10 @@ int main(int argc, char** argv) {
 
 	// Intervalles à parcourir pour chaque paramètre
 	map<string, VariationRange> mediumTestRanges = {
-		{"learning_coeff", {0.01, 1.0f, 0.2f} },
+		{"learning_coeff", {0.01, 1.0f, 0.1f} },
 		{"hidden_neurons_nb", {1, 100, 10} },
-		{"max_successive_augmentation_number", {1, 30, 1} }
+		{"max_successive_augmentation_number", {1, 100, 10} },
+		{"desired_error", {0.00001, 0.0001, 0.00001} }
 	};
 
 	// Résultats des tests 
