@@ -1,8 +1,6 @@
 # neural-network
 Authors : Slim BOUAOUINA - Thomas VILLE
 
-Learn to detect malware with neural network.
-
 The main goal of this project is to find the best parameters for a neural network which purpose is to detect malicious software.
 
 ## Features
@@ -12,6 +10,7 @@ The main goal of this project is to find the best parameters for a neural networ
  * Creates an SVG image containing a ROC curve showing the efficiency of the NN for the different parameters.
  * Detects inconsistent parameters.
  * Parallel processing of the test cases.
+ * Pretty visualisation with C3.js
 
 ### Resource usage
 In order not to fill up your computer's memory, only 8 tests are performed simultaneously.
@@ -23,9 +22,14 @@ Here is an example of a ROC curve produced by the program :
 
 ![ROC curve example](doc/roc-curve.png)
 
+If you have a python setup, you can also run `make view` in the main directory and go to the URL with a web browser to have a better view of each parameter.
+
+![ROC curve with C3.js](doc/Visualisation.png)
+
 ## Dependencies
  * FANN >= 2.2
  * plplot
+ * Python 2.7
 
 ## Documentation
 ### How to add a new test parameter
