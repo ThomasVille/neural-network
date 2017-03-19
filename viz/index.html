@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>ROC curves of different neural networks</title>
+    <!-- Load c3.css -->
+	<link href="c3.min.css" rel="stylesheet" type="text/css">
+
+	<!-- Load d3.js and c3.js -->
+	<script src="d3.v3.min.js" charset="utf-8"></script>
+	<script src="c3.min.js"></script>
+
+
+
+  </head>
+  <body>
+    <div style="display: none">
+      <div class="chart" style="width:49vw"></div>
+    </div>
+
+    <h1>ROC curves of different neural networks</h1>
+    You can zoom in and out with the mouse wheel.<br><br>
+    <div id="container" style="display: flex;direction: row;flex-wrap: wrap"></div>
+  </body>
+
+  <script>
+  var testNames = [];
+  var nbTestCases = [];
+  var tests = {}; // testName -> tests
+
+
+
+
+  var req = new XMLHttpRequest();
+  req.open('GET', 'result.data', false); 
+  req.send(null);
+  if(req.status == 200)
+  {
+      let file = req.responseText;
+      let wholeData = [];
+
+      file = file.split("\n");
+      file[0] += "Learning_time TPR FPR";
+
+      // Extrait les données
+      for(let i = 0; i < file.length; i++)
+      {
+        wholeData[i] = file[i].split(" ");
+      }
+
+      // Récupère les noms des tests et leurs effectifs
+      testNames = wholeData[0].map((x) => x); testNames.pop();
+      nbTestCases = wholeData[1].map((x) => +x); nbTestCases.pop();
+      wholeData.splice(0, 2);
+      let previousNb = 0;
+      for(let i = 0; i < testNames.length-2; i++)
+      {
+        tests[testNames[i]] = wholeData.slice(previousNb, previousNb + nbTestCases[i]);
+        previousNb += nbTestCases[i];
+      }
+
+      let my_xs = {};
+      for(var key in tests)
+      {
+        my_xs[key] = key+"X";
+      }
+
+      for(var key in tests)
+      {
+        let X = [my_xs[key]].concat(tests[key].map((x) => x[x.length-1]));
+        let Y = [key].concat(tests[key].map((x) => x[x.length-2]));
+
+        let data = {
+            xs: {},
+            columns: [X, Y]
+        };
+        data.xs[key] = my_xs[key];
+
+
+        // Clone le div contenant le chart
+        var cln = document.getElementsByClassName("chart")[0].cloneNode(true);
+        cln.id = key;
+        document.getElementById("container").appendChild(cln);
+
+        var chart = c3.generate({
+            bindto: '#'+key,
+            data: data,
+            zoom: {
+                enabled: true
+            },
+            tooltip: {
+                format: {
+                    title: function (d) { return 'False Positive Rate ' + d + '%'; },
+                    value: function (value, ratio, id, index) {
+                        let nbId = testNames.indexOf(id);
+                        return tests[id][index][nbId];
+                    }
+        //            value: d3.format(',') // apply this format to both y and y2
+                }
+            }
+        });
+      }
+  }
+
+  </script>
+</html>

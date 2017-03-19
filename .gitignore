@@ -5,8 +5,6 @@
 *.data
 *.o
 *.net
-*.html
-*.json
 exo2
 
 # Compiled Object files
