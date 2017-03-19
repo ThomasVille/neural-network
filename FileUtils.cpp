@@ -77,9 +77,6 @@ void ReadFromFile(const string filename, map<string, vector<VariationResult>>& t
     }
 }
 
-/** Sépare une chaîne de caractère en fonction d'un ou plusieurs délimiteurs.
-* 
-**/
 vector<string> SplitString(string line, string delimiters)
 {
     // Position actuelle dans la chaîne (début du token)

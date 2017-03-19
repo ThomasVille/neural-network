@@ -8,8 +8,10 @@
 typedef std::map<std::string, float> ParameterSet;
 
 
-/** Résultat d'une phase d'apprentissage/test du RdN.
-**/
+
+/**
+ * @brief      Résultat d'une phase d'apprentissage/test du RdN.
+ */
 struct VariationResult {
 	// Paramètres qui ont été passés au réseau
 	ParameterSet inputParameter;
@@ -23,12 +25,25 @@ struct VariationResult {
 	float truePositiveRate;
 	float falsePositiveRate;
 
-	/** Ne fait rien par défaut **/
+	
+	/**
+	 * @brief      Définit les valeurs par défaut des différents paramètres
+	 */
 	VariationResult();
 
-	/** Crée un objet à partir d'une chaîne formattée. **/
+	/**
+	 * @brief      Crée un objet à partir d'une chaîne formatée.
+	 *
+	 * @param[in]  line   La chaîne formatée.
+	 * @param[in]      names  Les noms des paramètres à associer aux valeurs de la chaîne.
+	 */
 	VariationResult(std::string line, std::vector<std::string>& names);
 
+	/**
+	 * @brief      Ecrit le contenu de l'objet dans un flux (fichier ou autre)
+	 *
+	 * @param[out]      os    Flux dans lequel écrire.
+	 */
 	void WriteToStream(std::ostream& os);
 };
 

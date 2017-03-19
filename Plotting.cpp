@@ -64,7 +64,6 @@ void ShowResults(string outputSVGFilename, map<string, vector<VariationResult>> 
   	//free(y);
 }
 
-/** Remplie un tableau de PLFLT avec des données issues d'un tableau de VariationResult **/
 void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data)
 {
 	// Alloue la mémoire
@@ -79,7 +78,6 @@ void FillArrays(PLFLT** x, PLFLT** y, vector<VariationResult>& data)
 	}
 }
 
-/** Récupère les limites minimum et maximum en X et en Y d'un set de données **/
 void SetMinMax(PLFLT& xMin, PLFLT& xMax, PLFLT& yMin, PLFLT& yMax, vector<VariationResult>& data)
 {
 	xMin = min_element(data.begin(), data.end(), [](VariationResult& a, VariationResult& b) {

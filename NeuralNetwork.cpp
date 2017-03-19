@@ -2,8 +2,6 @@
 #include <iostream>
 using namespace std;
 
-/** Lit un fichier de données et génère 3 sets de données (train, validation, test)
-*/
 void InitializeData(string inputDatasetFilename, fann_train_data** train_set, fann_train_data** validation_set, fann_train_data** test_set)
 {
 	fann_train_data* total_train_set = NULL; 	// Set de données total
@@ -190,7 +188,6 @@ VariationResult RunNeuralNetwork(ParameterSet parameter, fann_train_data* train_
 	return result;
 }
 
-/** Affiche un set de paramètres **/
 void PrintParam(ParameterSet param)
 {
 	for(pair<string, float> p : param) {
@@ -198,31 +195,16 @@ void PrintParam(ParameterSet param)
 	}
 }
 
-/* Interprète les sorties du réseau.
-* Si N0 > N1, c'est un malware
-* Si N0 < N1, c'est sain
-* @param real_outputs	Sorties à interpréter
-*/
 bool interpret_outputs(fann_type *real_outputs){
 	if(real_outputs[0] > real_outputs[1]) return true;
 	else return false;
 }
 
-/* Convertit un float vers un booléen.
-* true = 1
-* false = 0
-*/
 bool floatToBool(float a){
 	if(a < 0.5) return false;
 	else		return true;
 }
 
-/** Compare des sorties.
-* Renvoie true si toutes les sorties correspondent (avec un seuil arbitraire)
-* Renvoie false si au moins une sortie ne correspond pas
-* @param expected_outputs	Sorties attendues
-* @param real_outputs		Sorties réelles
-*/
 bool compare_outputs(fann_type *expected_outputs, fann_type *real_outputs){
 	bool success = true;
 	for(int i = 0; i < 2; i++){

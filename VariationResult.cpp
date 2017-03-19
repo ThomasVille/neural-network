@@ -30,7 +30,6 @@ VariationResult::VariationResult(std::string line, vector<string>& names)
     falsePositiveRate = stof(values[values.size()-1]);
 }
 
-/** Ecrit un VariationResult directement dans un flux (stdout ou fichier) **/
 void VariationResult::WriteToStream(std::ostream& os)
 {
     // Ecrit les paramètres d'entrée en premier
