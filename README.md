@@ -14,6 +14,8 @@ The main goal of this project is to find the best parameters for a neural networ
  * Parallel processing of the test cases.
 
 ### Resource usage
+In order not to fill up your computer's memory, only 8 tests are performed simultaneously.
+
 ![Screenshot of RAM and CPU usage](doc/ResourceUsage.png)
 
 ### ROC curve
@@ -27,3 +29,18 @@ Here is an example of a ROC curve produced by the program :
 
 ## Documentation
 ### How to add a new test parameter
+3 steps are required to add a new test parameter to the neural network :
+1. main2.cpp
+In the main function, set the range of values you want your parameter to iterate through.
+
+![How to add a new test parameter : main2.cpp](doc/main.png)
+
+2. VariationResult.cpp
+In the default constructor of VariationResult, add a default value to the parameter.
+
+![How to add a new test parameter : VariationResult.cpp](doc/VariationResult.png)
+
+3. RunNeuralNetwork.cpp
+In RunNeuralNetwork, use your parameter the way you want, pass it to fann functions, switch on it, etc. Just remember that parameters are of float type.
+
+![How to add a new test parameter : RunNeuralNetwork.cpp](doc/RunNeuralNetwork.png)
